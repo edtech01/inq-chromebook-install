@@ -1,0 +1,371 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #000;
+  color: #eee;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 4:3 container — sized by JS in resizeApp() */
+#app-container {
+  position: relative;
+  background: #1a1a2e;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.screen.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── SPLASH ── */
+#splash {
+  background: url('InquisitorSplash1.jpg') center center / cover no-repeat;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 60px;
+}
+
+#splash-overlay {
+  background: rgba(0,0,0,0.55);
+  border-radius: 12px;
+  padding: 28px 40px;
+  text-align: center;
+  max-width: 520px;
+  width: 90%;
+}
+
+#splash-status {
+  font-size: 1.1rem;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+#splash-vid-pid {
+  font-size: 0.9rem;
+  color: #aef;
+  margin-bottom: 10px;
+}
+
+.btn {
+  padding: 10px 28px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin: 6px;
+  transition: opacity 0.2s;
+}
+
+.btn:hover { opacity: 0.85; }
+
+.btn-primary { background: #0078d4; color: #fff; }
+.btn-success { background: #2a9d2a; color: #fff; }
+.btn-danger  { background: #c0392b; color: #fff; }
+.btn-warning { background: #d4860a; color: #fff; }
+
+/* ── MENU ── */
+#menu {
+  background: #16213e;
+}
+
+/* Tab bar */
+#tab-bar {
+  display: flex;
+  background: #0f3460;
+  border-bottom: 2px solid #0078d4;
+  position: relative;
+}
+
+.tab {
+  padding: 10px 24px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  user-select: none;
+  position: relative;
+}
+
+.tab:hover { background: #1a4a80; }
+
+.tab-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #0f3460;
+  border: 1px solid #0078d4;
+  min-width: 180px;
+  z-index: 100;
+}
+
+.tab-dropdown.open { display: block; }
+
+.tab-dropdown a {
+  display: block;
+  padding: 9px 16px;
+  color: #eee;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.tab-dropdown a:hover { background: #1a4a80; }
+
+/* Menu body */
+#menu-body {
+  display: flex;
+  flex: 1;
+  padding: 20px;
+  gap: 24px;
+  overflow: auto;
+}
+
+.team-section {
+  flex: 1;
+}
+
+.team-section h3 {
+  font-size: 1rem;
+  color: #aef;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.field-row label {
+  width: 80px;
+  font-size: 0.85rem;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.field-row input[type="text"] {
+  flex: 1;
+  padding: 6px 10px;
+  background: #1e2d50;
+  border: 1px solid #0078d4;
+  border-radius: 4px;
+  color: #eee;
+  font-size: 0.9rem;
+}
+
+/* Settings panel */
+#settings-panel {
+  width: 200px;
+  flex-shrink: 0;
+}
+
+#settings-panel h3 {
+  font-size: 1rem;
+  color: #aef;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.setting-row {
+  margin-bottom: 12px;
+}
+
+.setting-row label {
+  display: block;
+  font-size: 0.8rem;
+  color: #bbb;
+  margin-bottom: 3px;
+}
+
+.setting-row input[type="text"] {
+  width: 100%;
+  padding: 6px 10px;
+  background: #1e2d50;
+  border: 1px solid #0078d4;
+  border-radius: 4px;
+  color: #eee;
+  font-size: 0.95rem;
+}
+
+#menu-footer {
+  padding: 14px 20px;
+  border-top: 2px solid #0f3460;
+  text-align: right;
+}
+
+/* ── SCOREBOARD ── */
+#scoreboard {
+  background: #0d0d1a;
+  padding: 12px;
+  gap: 10px;
+  position: relative;
+}
+
+#timer-row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.timer-box {
+  flex: 0 0 30%;
+  background: #1a1a3a;
+  border: 2px solid #0078d4;
+  border-radius: 8px;
+  padding: 14px 16px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  min-height: 100px;
+}
+
+.timer-box .timer-label {
+  font-size: 0.75rem;
+  color: #88aaff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.timer-box .timer-value {
+  font-size: 4rem;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+
+.timer-box.expired { border-color: #c0392b; }
+.timer-box.expired .timer-value { color: #ff4444; }
+
+#buzz-team-label {
+  text-align: center;
+  font-size: 5rem;
+  font-weight: bold;
+  color: #ffd700;
+  height: 100px;
+  flex-shrink: 0;
+  background: #111130;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#score-row {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+.score-box {
+  flex: 0 0 37.5%;
+  background: #1a2a1a;
+  border: 3px solid #2a9d2a;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding: 16px 10px 36px 10px;
+  min-height: 130px;
+  height: 72%;
+  align-self: center;
+}
+
+.score-box .score-value {
+  font-size: 7rem;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+}
+
+.score-box .score-team-name {
+  position: absolute;
+  bottom: 8px;
+  font-size: 1.4rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#buzz-player-label {
+  text-align: center;
+  font-size: 5.5rem;
+  font-weight: bold;
+  color: #88ff88;
+  height: 100px;
+  flex-shrink: 0;
+  background: #111130;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+}
+
+#raw-byte-display {
+  display: none;
+}
+
+/* Scoreboard footer */
+#sb-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+}
+
+/* Message box overlay */
+#sb-msgbox {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#sb-msgbox-content {
+  background: #1a1a3a;
+  border: 2px solid #0078d4;
+  border-radius: 10px;
+  padding: 32px 40px;
+  text-align: center;
+  min-width: 280px;
+}
+
+#sb-msgbox-text {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  color: #eee;
+}
