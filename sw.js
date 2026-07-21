@@ -1,4 +1,4 @@
-const CACHE = 'inquisitor-v1';
+const CACHE = 'inquisitor-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,10 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './InquisitorSplash.jpg',
-  './InquisitorSplash1.jpg'
+  './InquisitorSplash1.jpg',
+  './ringin.wav',
+  './ringout.wav',
+  './Windows XP Hardware Fail.wav'
 ];
 
 self.addEventListener('install', e => {
