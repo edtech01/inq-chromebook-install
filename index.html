@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inquisitor — Academic Quick Recall</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=12">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -23,6 +23,14 @@
       <button id="btn-menu"    class="btn btn-success" style="display:none;">MENU</button>
     </div>
   </div>
+
+  <!-- Firmware warning overlay -->
+  <div id="splash-msgbox" style="display:none;">
+    <div id="splash-msgbox-content">
+      <div id="splash-msgbox-text"></div>
+      <button id="btn-splash-msgbox-dismiss" class="btn btn-primary">Dismiss</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════ SCREEN 2: MENU ══════════════ -->
@@ -32,9 +40,9 @@
   <div id="tab-bar">
     <div class="tab">File
       <div class="tab-dropdown">
-        <a href="#">New Match</a>
-        <a href="#">Save Match</a>
-        <a href="#">Load Match</a>
+        <a href="#" id="menu-file-save-setup">Save Setup File</a>
+        <a href="#" id="menu-file-open-setup">Open Setup File</a>
+        <a href="#" id="menu-file-restore-setup">Restore Default Setup</a>
         <a href="#" id="menu-file-exit">Exit</a>
       </div>
     </div>
@@ -42,6 +50,11 @@
       <div class="tab-dropdown">
         <a href="#">Display Settings</a>
         <a href="#">Sound Settings</a>
+        <label class="tab-dropdown-check"><input type="checkbox" id="opt-keep-stats"> Keep Match Stats</label>
+        <label class="tab-dropdown-check"><input type="checkbox" id="opt-voice-spotter"> Voice Spotter</label>
+        <div class="tab-dropdown-label">Scoreboard Type</div>
+        <label class="tab-dropdown-check"><input type="radio" name="opt-scoreboard-mode" id="opt-mode-classic" value="classic" checked> Classic (2 Team)</label>
+        <label class="tab-dropdown-check"><input type="radio" name="opt-scoreboard-mode" id="opt-mode-cutthroat" value="cutthroat"> Cut Throat (Individual)</label>
       </div>
     </div>
     <div class="tab">Info
@@ -54,53 +67,64 @@
 
   <!-- Menu body -->
   <div id="menu-body">
+    <div id="menu-fields-row">
 
-    <!-- Team One -->
-    <div class="team-section">
-      <h3>Team One</h3>
-      <div class="field-row"><label>Team Name</label><input type="text" id="t1-name" value="Team One"></div>
-      <div class="field-row"><label>Player 1</label><input type="text" id="t1-p1" value="Player 1"></div>
-      <div class="field-row"><label>Player 2</label><input type="text" id="t1-p2" value="Player 2"></div>
-      <div class="field-row"><label>Player 3</label><input type="text" id="t1-p3" value="Player 3"></div>
-      <div class="field-row"><label>Player 4</label><input type="text" id="t1-p4" value="Player 4"></div>
-      <div class="field-row" id="t1-p5-row"><label>Player 5</label><input type="text" id="t1-p5" value="Player 5"></div>
+      <!-- Team One -->
+      <div class="team-section">
+        <h3>Team One</h3>
+        <div class="field-row"><label>Team Name</label><input type="text" id="t1-name" value="Team One"></div>
+        <div class="field-row"><label>Player 1</label><input type="text" id="t1-p1" value="Player 1"></div>
+        <div class="field-row"><label>Player 2</label><input type="text" id="t1-p2" value="Player 2"></div>
+        <div class="field-row"><label>Player 3</label><input type="text" id="t1-p3" value="Player 3"></div>
+        <div class="field-row"><label>Player 4</label><input type="text" id="t1-p4" value="Player 4"></div>
+        <div class="field-row" id="t1-p5-row"><label>Player 5</label><input type="text" id="t1-p5" value="Player 5"></div>
+      </div>
+
+      <!-- Team Two -->
+      <div class="team-section">
+        <h3>Team Two</h3>
+        <div class="field-row"><label>Team Name</label><input type="text" id="t2-name" value="Team Two"></div>
+        <div class="field-row"><label>Player 6</label><input type="text" id="t2-p1" value="Player 6"></div>
+        <div class="field-row"><label>Player 7</label><input type="text" id="t2-p2" value="Player 7"></div>
+        <div class="field-row"><label>Player 8</label><input type="text" id="t2-p3" value="Player 8"></div>
+        <div class="field-row"><label>Player 9</label><input type="text" id="t2-p4" value="Player 9"></div>
+        <div class="field-row" id="t2-p5-row"><label>Player 10</label><input type="text" id="t2-p5" value="Player 10"></div>
+      </div>
+
+      <!-- Settings -->
+      <div id="settings-panel">
+        <h3>Match Settings</h3>
+        <div class="setting-row">
+          <label>MATCH TIMER</label>
+          <input type="text" id="cfg-match" value="15:00">
+        </div>
+        <div class="setting-row">
+          <label>TOSSUP TIMER (sec)</label>
+          <input type="text" id="cfg-tossup" value="5">
+        </div>
+        <div class="setting-row">
+          <label>BONUS TIMER (sec)</label>
+          <input type="text" id="cfg-bonus" value="10">
+        </div>
+        <div class="setting-row">
+          <label>SCORE INCREMENT</label>
+          <input type="text" id="cfg-score" value="1">
+        </div>
+      </div>
+
     </div>
 
-    <!-- Team Two -->
-    <div class="team-section">
-      <h3>Team Two</h3>
-      <div class="field-row"><label>Team Name</label><input type="text" id="t2-name" value="Team Two"></div>
-      <div class="field-row"><label>Player 6</label><input type="text" id="t2-p1" value="Player 6"></div>
-      <div class="field-row"><label>Player 7</label><input type="text" id="t2-p2" value="Player 7"></div>
-      <div class="field-row"><label>Player 8</label><input type="text" id="t2-p3" value="Player 8"></div>
-      <div class="field-row"><label>Player 9</label><input type="text" id="t2-p4" value="Player 9"></div>
-      <div class="field-row" id="t2-p5-row"><label>Player 10</label><input type="text" id="t2-p5" value="Player 10"></div>
+    <!-- Current Options Summary -->
+    <div id="menu-options-summary">
+      <h3>Current Options</h3>
+      <div class="summary-row"><span class="summary-label">Keep Match Stats:</span> <span id="summary-keep-stats">Off</span></div>
+      <div class="summary-row"><span class="summary-label">Voice Spotter:</span> <span id="summary-voice-spotter">Off</span></div>
+      <div class="summary-row"><span class="summary-label">Scoreboard Type:</span> <span id="summary-scoreboard-type">Classic (2 Team)</span></div>
     </div>
-
-    <!-- Settings -->
-    <div id="settings-panel">
-      <h3>Match Settings</h3>
-      <div class="setting-row">
-        <label>MATCH TIMER</label>
-        <input type="text" id="cfg-match" value="15:00">
-      </div>
-      <div class="setting-row">
-        <label>TOSSUP TIMER (sec)</label>
-        <input type="text" id="cfg-tossup" value="5">
-      </div>
-      <div class="setting-row">
-        <label>BONUS TIMER (sec)</label>
-        <input type="text" id="cfg-bonus" value="10">
-      </div>
-      <div class="setting-row">
-        <label>SCORE INCREMENT</label>
-        <input type="text" id="cfg-score" value="1">
-      </div>
-    </div>
-
   </div>
 
   <div id="menu-footer">
+    <button id="btn-stats" class="btn btn-secondary" disabled>STATS</button>
     <button id="btn-continue" class="btn btn-success">CONTINUE</button>
   </div>
 </div>
@@ -152,11 +176,97 @@
   <!-- Footer -->
   <div id="sb-footer">
     <button id="btn-back-to-menu" class="btn btn-warning">MENU</button>
+    <button id="btn-buzzer-check" class="btn btn-secondary">Buzzer Check</button>
   </div>
 
 </div>
 
+<!-- ══════════════ SCREEN: CUT THROAT ══════════════ -->
+<div id="cutthroat" class="screen">
+
+  <!-- Timers -->
+  <div id="ct-timer-row">
+    <div class="timer-box" id="ct-response-timer-box">
+      <div class="timer-label">RESPONSE TIMER</div>
+      <div class="timer-value" id="ct-response-timer-value">00</div>
+    </div>
+    <div class="timer-box" id="ct-match-timer-box">
+      <div class="timer-label">MATCH TIMER</div>
+      <div class="timer-value" id="ct-match-timer-value">15:00</div>
+    </div>
+  </div>
+
+  <!-- Individual leaderboard, sorted by score descending -->
+  <div id="ct-leaderboard"></div>
+
+  <!-- Buzzed-in player + editable score -->
+  <div id="ct-buzz-row">
+    <div id="ct-buzz-player-label">&nbsp;</div>
+    <div id="ct-buzz-score-box">
+      <div class="score-value" id="ct-buzz-score-value"></div>
+    </div>
+  </div>
+
+  <!-- Raw HID debug -->
+  <div id="ct-raw-byte-display"></div>
+
+  <!-- Footer -->
+  <div id="ct-footer">
+    <button id="ct-btn-back-to-menu" class="btn btn-warning">MENU</button>
+    <button id="ct-btn-buzzer-check" class="btn btn-secondary">Buzzer Check</button>
+  </div>
+
+</div>
+
+<!-- ══════════════ SCREEN 4: STATS ══════════════ -->
+<div id="stats" class="screen">
+  <div id="stats-header"><h2>Match Statistics</h2></div>
+
+  <div id="stats-body">
+    <div class="stats-section">
+      <h3>Team Stats</h3>
+      <table class="stats-table" id="stats-team-table">
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th>TU Att</th>
+            <th>TU Pts</th>
+            <th>TU %</th>
+            <th>Bonus Att</th>
+            <th>Bonus Pts</th>
+            <th>Bonus %</th>
+            <th>Interrupts</th>
+          </tr>
+        </thead>
+        <tbody id="stats-team-body"></tbody>
+      </table>
+    </div>
+
+    <div class="stats-section">
+      <h3>Individual Stats</h3>
+      <table class="stats-table" id="stats-player-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Team</th>
+            <th>TU Att</th>
+            <th>TU Pts</th>
+            <th>TU %</th>
+            <th>Avg Resp (s)</th>
+            <th>Interrupts</th>
+          </tr>
+        </thead>
+        <tbody id="stats-player-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="stats-footer">
+    <button id="btn-stats-back" class="btn btn-warning">MENU</button>
+  </div>
+</div>
+
 </div><!-- #app-container -->
-<script src="app.js?v=9"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>
