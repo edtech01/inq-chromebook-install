@@ -112,10 +112,12 @@ async function connectHID() {
 }
 
 function handleHIDReport(event) {
-  const data = new Uint8Array(event.data.buffer);
+  const data = new Uint8Array(event.data.buffer, event.data.byteOffset, event.data.byteLength);
   // Bytes 0-2 reserved. Byte 3 = player/team ID (255 = idle).
   // Model number (PID) stored in state.modelNumber at connect time.
+  // Model 512 also carries players 1-2 on bits 6-7 of the 2nd byte (data[1]).
   const byte4 = data[3];
+  const byte2 = data[1];
 
   // Splash: on the first report, gate the MENU button on a firmware check —
   // the 3rd data byte (data[2]) must read 111 or the interface's firmware is too old.
@@ -133,18 +135,26 @@ function handleHIDReport(event) {
 
   // Route to whichever board is on screen; both share the same idle/lock rules.
   if ($('scoreboard').classList.contains('active')) {
-    handleBoardReport(byte4, 'raw-byte-display', 'buzz-player-label', handleScoreboardBuzz);
+    handleBoardReport(byte4, byte2, 'raw-byte-display', 'buzz-player-label', handleScoreboardBuzz);
   } else if ($('cutthroat').classList.contains('active')) {
-    handleBoardReport(byte4, 'ct-raw-byte-display', 'ct-buzz-player-label', handleCTBuzz);
+    handleBoardReport(byte4, byte2, 'ct-raw-byte-display', 'ct-buzz-player-label', handleCTBuzz);
   }
+}
+
+// True when no button is pressed. Model 512 spreads players 1-2 across bits 6-7 of
+// the 2nd byte (active-low, like byte 4), so byte4 alone isn't enough to detect idle there.
+function isIdleReport(byte4, byte2, modelNumber) {
+  if (byte4 !== 255) return false;
+  if (modelNumber === 512 && (byte2 & 192) !== 192) return false;
+  return true;
 }
 
 // Shared idle/lock handling for both scoreboard screens — always show the raw byte,
 // decode a buzz if nothing is currently blocking it, otherwise show why buzzing is blocked.
-function handleBoardReport(byte4, rawDisplayId, playerLabelId, onBuzz) {
-  $(rawDisplayId).textContent = `Byte 4: ${byte4}`;
+function handleBoardReport(byte4, byte2, rawDisplayId, playerLabelId, onBuzz) {
+  $(rawDisplayId).textContent = `Byte 2: ${byte2}  Byte 4: ${byte4}`;
 
-  if (byte4 === 255) {
+  if (isIdleReport(byte4, byte2, state.modelNumber)) {
     if (!state.anyTimerExpired) state.buzzLocked = false;
     if (state.inTimeout) {
       $(playerLabelId).textContent = 'Time Out';
@@ -166,7 +176,7 @@ function handleBoardReport(byte4, rawDisplayId, playerLabelId, onBuzz) {
   }
 
   state.buzzLocked = true;
-  onBuzz(byte4);
+  onBuzz(byte4, byte2);
 }
 
 // Default splash invitation — shown before any connect attempt has actually been made
@@ -534,8 +544,8 @@ function playBuzzTone() {
 
 // ── SCOREBOARD ─────────────────────────────────────────────────────────────
 
-// Decode byte 4 → { teamIdx, playerIdx } using device PID as the model number
-function decodeByte4(byte4, modelNumber) {
+// Decode byte 4 (+ byte 2 for Model 512) → { teamIdx, playerIdx } using device PID as the model number
+function decodeByte4(byte4, byte2, modelNumber) {
   if (modelNumber === 712) {
     // Byte 4 is the 1-based player number
     // 1–5  → Team One,  playerIdx = byte4 - 1
@@ -559,12 +569,36 @@ function decodeByte4(byte4, modelNumber) {
     if (playerNum >= 5 && playerNum <= 8) return { teamIdx: 1, playerIdx: playerNum - 5 };
     return null;
   }
+  if (modelNumber === 512) {
+    // 10-player device, measured directly from hardware:
+    // Players 1-2 come from bits 6-7 of the 2nd report byte (data[1]), XOR 192,
+    // active-low. Players 3-10 come from byte 4, XOR 255, active-low, via a
+    // bit->player table that is NOT the same ordering as Model 2012's.
+    const val2 = byte2 ^ 192;
+    const setBits2 = [];
+    if (val2 & 64)  setBits2.push(1); // bit 6 -> player 1
+    if (val2 & 128) setBits2.push(2); // bit 7 -> player 2
+    if (setBits2.length > 0) {
+      const playerNum = setBits2.length > 1 ? setBits2[Math.floor(Math.random() * setBits2.length)] : setBits2[0];
+      return { teamIdx: 0, playerIdx: playerNum - 1 };
+    }
+    const val4 = byte4 ^ 255;
+    if (val4 === 0) return null;
+    const setBits4 = [];
+    for (let bit = 0; bit < 8; bit++) { if (val4 & (1 << bit)) setBits4.push(bit); }
+    const bit = setBits4.length > 1 ? setBits4[Math.floor(Math.random() * setBits4.length)] : setBits4[0];
+    const BIT_TO_PLAYER_512 = [3, 4, 5, 10, 9, 8, 6, 7];
+    const playerNum = BIT_TO_PLAYER_512[bit];
+    if (playerNum >= 1 && playerNum <= 5)  return { teamIdx: 0, playerIdx: playerNum - 1 };
+    if (playerNum >= 6 && playerNum <= 10) return { teamIdx: 1, playerIdx: playerNum - 6 };
+    return null;
+  }
   return null;
 }
 
-function handleScoreboardBuzz(byte4) {
+function handleScoreboardBuzz(byte4, byte2) {
   clearInterval(state.responseInterval);
-  const decoded = decodeByte4(byte4, state.modelNumber);
+  const decoded = decodeByte4(byte4, byte2, state.modelNumber);
   if (decoded) {
     const teamName   = state.teams[decoded.teamIdx].name;
     const playerName = state.teams[decoded.teamIdx].players[decoded.playerIdx];
@@ -587,9 +621,9 @@ function ctIndexFor(teamIdx, playerIdx) {
   return teamIdx === 0 ? playerIdx : playersPerTeam() + playerIdx;
 }
 
-function handleCTBuzz(byte4) {
+function handleCTBuzz(byte4, byte2) {
   clearInterval(state.responseInterval);
-  const decoded = decodeByte4(byte4, state.modelNumber);
+  const decoded = decodeByte4(byte4, byte2, state.modelNumber);
   if (decoded) {
     const ctIndex = ctIndexFor(decoded.teamIdx, decoded.playerIdx);
     const playerName = state.teams[decoded.teamIdx].players[decoded.playerIdx];
