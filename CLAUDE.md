@@ -38,16 +38,17 @@ A single `state` object holds everything: `hidDevice`, `modelNumber`, `splashSho
 - `voiceSpotter` — "Voice Spotter" toggle (announces buzz-ins via speech synthesis)
 - `buzzerCheckActive` / `buzzerCheckMatchWasRunning` — Buzzer Check mode and whether to resume the match timer on exit
 
-`playersPerTeam()` returns 4 for Model 2012 and 4097, 5 for all others (including Model 712).
+`playersPerTeam()` returns 4 for Model 2012 and 4097, 5 for all others (including Model 712 and Model 512).
 
 ### HID protocol
 
 - **VID:** `0x19A1` — filter used in both `requestDevice` (manual connect) and `getDevices` (auto-reconnect on load)
-- **Input report — 4 bytes:** `[0]`/`[1]`/`[2]` = reserved, `[3]` = player/team ID
+- **Input report — 4 bytes:** `[0]`/`[2]` = reserved, `[3]` (`byte4`) = player/team ID on every model; `[1]` (`byte2`) is reserved on Model 712/2012/4097 but carries players 1-2 on Model 512 (see below)
+- **`handleHIDReport` must build the byte array from `event.data.byteOffset`/`byteLength`**, not just `event.data.buffer` — Chrome strips the report-ID byte from `event.data` for numbered reports, and using the raw `.buffer` (ignoring the `DataView`'s own offset) silently shifts every index by one on devices that use a numbered report
 - **Model number = PID** (`device.productId`), read at connect time and stored in `state.modelNumber` — not from the data bytes
-- **Idle value:** byte 4 = `255` means no button pressed — player label is cleared, nothing else happens
+- **Idle value:** byte 4 = `255` means no button pressed. Model 512 additionally requires byte 2's bits 6-7 to both read `1` (see `isIdleReport`) — a player 1/2 buzz leaves byte 4 at `255`, so byte 4 alone isn't sufficient to detect idle on that model
 - **Output:** two separate `sendReport(0, Uint8Array)` calls via `sendHIDCommand()` — `resetBuzzers()` sends `124` then `125`, which causes the HID to immediately return to sending `255`
-- **`buzzLocked`:** set `true` on first non-255 report to gate repeat reports of the same buzz; cleared by `resetBuzzers()`
+- **`buzzLocked`:** set `true` on first non-255/non-idle report to gate repeat reports of the same buzz; cleared by `resetBuzzers()`
 
 ### Splash / connect flow
 
@@ -60,10 +61,14 @@ Message text is chosen by *why* the connection didn't happen:
 - `showNotFound()` — "Inquisitor not found…" — only shown when no device with the matching VID exists (empty `getDevices()` match or empty `requestDevice()` picker result).
 - `showConnectionError(err)` — "Inquisitor found but could not connect…" — shown when the VID *was* found but `device.open()` (or `requestDevice()`) threw.
 
-### Decoding byte 4 → player (`decodeByte4`)
+### Decoding byte 4 (+ byte 2 for Model 512) → player (`decodeByte4`)
 
 - **Model 712:** byte 4 value is the 1-based player number; `1–5` → Team One (`playerIdx = byte4 - 1`); `6–10` → Team Two (`playerIdx = byte4 - 6`).
 - **Model 2012 / 4097:** XOR byte4 with 255; if multiple bits set, randomly keep one; bit position maps to player number via `BIT_TO_PLAYER = [1,2,3,4,5,6,8,7]` (bits 6 and 7 are swapped on the physical device — bit 6 → player 8, bit 7 → player 7); players 1–4 → Team One, players 5–8 → Team Two.
+- **Model 512** (10-player device, mapping measured directly from hardware — do not assume it follows the 2012 pattern): checked in this order —
+  1. XOR byte 2 with 192 and check bits 6-7: bit 6 → player 1, bit 7 → player 2 (if both set, randomly keep one). Either always resolves to Team One (`playerIdx = playerNum - 1`) and, if set, takes priority over byte 4 for that report.
+  2. Otherwise, XOR byte 4 with 255; if multiple bits set, randomly keep one; bit position maps to player number via `BIT_TO_PLAYER_512 = [3,4,5,10,9,8,6,7]` — note this ordering is *not* the same as Model 2012's `BIT_TO_PLAYER`. Players 1–5 → Team One, players 6–10 → Team Two.
+  - The two bytes are not pooled into a single random draw — a simultaneous press across byte 2 and byte 4 always resolves in byte 2's favor. Considered acceptable since that requires two different players buzzing in the same ~ms.
 
 ### Timer behaviour
 
