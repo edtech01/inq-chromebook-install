@@ -4,7 +4,7 @@
     {
       "name": "inquisitor-app",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "3334"],
+      "runtimeArgs": ["serve.py", "3334"],
       "port": 3334
     }
   ]

@@ -570,6 +570,37 @@ body {
   color: #6cf;
 }
 
+/* Menu info overlay (About / Help) */
+#menu-msgbox {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#menu-msgbox-content {
+  background: #1a1a3a;
+  border: 2px solid #0078d4;
+  border-radius: 10px;
+  padding: 32px 40px;
+  text-align: center;
+  max-width: 420px;
+}
+
+#menu-msgbox-text {
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+  color: #eee;
+  line-height: 1.5;
+}
+
+#menu-msgbox-text a {
+  color: #6cf;
+}
+
 /* ── STATS ── */
 #stats {
   background: #0d0d1a;

@@ -4,17 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the app
 
-No build step — pure static HTML/JS/CSS. Serve from the project root with Python:
+Static HTML/JS/CSS, no build step, but served by a small custom script (`serve.py`) rather than plain `python -m http.server` — it also exposes `GET /api/setup-file` so the app can auto-load `InquisitorSetup.txt` from the operator's Documents folder (see below). Serve from the project root with:
 
 ```bash
-python -m http.server 3334
+python serve.py 3334
 ```
 
-Then open `http://localhost:3334` in Chrome. The preview server config is in `.claude/launch.json` (server name: `inquisitor-app`).
+Then open `http://localhost:3334` in Chrome, or just run `Run-Inquisitor.bat`, which does both. The preview server config is in `.claude/launch.json` (server name: `inquisitor-app`), also pointed at `serve.py`.
 
 WebHID requires Chrome 89+ and a secure context (localhost or HTTPS). It will not work in Firefox, Safari, or file:// URLs.
 
 **Cache-busting:** Both `<link>` and `<script>` tags in `index.html` use `?v=N` query strings. Bump N whenever `app.js` or `style.css` changes so Chrome picks up the new version.
+
+**Service worker cache:** `sw.js` precaches `./index.html`, `./app.js`, and `./style.css` under the bare (query-less) URL, keyed by the `CACHE` constant at the top of the file. Since the SW file itself is what the browser diffs to decide whether to reinstall, editing `index.html`/`app.js`/`style.css` without also bumping `CACHE` in `sw.js` leaves the old service worker in place — it will keep serving the **stale cached `index.html`** (old menu markup and all) no matter how many times the `?v=N` query strings are bumped, since the browser never even re-fetches index.html from disk. **Always bump `CACHE` in `sw.js` alongside any change to those three files.**
+
+Two more layers had to be fixed for that bump to actually reach the browser, both now handled — don't reintroduce either:
+- **Chrome only rechecks `sw.js` for changes at most once per 24 hours** during a routine page load. `app.js`'s registration call chains `reg.update()` after `register()` specifically to bypass that throttle — without it, a correctly-bumped `CACHE` can sit unnoticed for up to a day even with everything else right.
+- **`serve.py` sends `Cache-Control: no-store, must-revalidate` for `/`, `/index.html`, and `/sw.js`.** Without it, a static file server's default (heuristic) caching can let the browser reuse a stale HTTP-cached copy of `sw.js` itself, so the update check never even sees the new bytes on disk. Don't move back to plain `python -m http.server` for real usage — it lacks both this and the `/api/setup-file` endpoint below.
+- **`serve.py`'s `Server` class must not set `allow_reuse_address = True`.** On Windows that maps to `SO_REUSEADDR`, which lets a *second, separate process* bind and listen on a port a first process is already listening on — the OS then routes each incoming request to whichever of the two processes it feels like, so some requests hit old code and some hit new with no way to tell which from the browser side. `Run-Inquisitor.bat` checks `netstat` for an existing listener on the port before starting a new server for this same reason — don't remove that check, and don't launch a second `serve.py` manually while one is already running; close its console window first.
 
 ## Architecture
 
@@ -104,6 +111,15 @@ Scoreboard footer button, `toggleBuzzerCheck()`, only visible when `state.keepSt
 
 `saveMenuValues()` reads all input fields into `state`. `initScoreboard()` reads from `state` to populate the scoreboard and re-attaches all event listeners using direct property assignment (`onclick`, `oncontextmenu`) so repeated CONTINUE presses safely overwrite rather than stack listeners.
 
+### Setup file (File menu + auto-load)
+
+`applySetupText(text)` parses the `key=value` setup format (team/player names, match config, and the current options) and applies it to `state`; it's the shared parser behind both paths below.
+
+- **Save Setup File / Open Setup File** (File menu) — `saveSetupFile()` / `openSetupFile()` use `showSaveFilePicker()` / `showOpenFilePicker()` (File System Access API), defaulting to the Documents folder and the filename `InquisitorSetup.txt`. These always need a real user click — that's a browser requirement, not a bug.
+- **Auto-load at startup** — `tryAutoLoadSetupFile()` does a plain `fetch('/api/setup-file')` on `DOMContentLoaded` and, on success, feeds the response straight into `applySetupText()`. It deliberately does *not* go through the File System Access API: a handle's read permission resets every time the browser fully restarts, so a client-only approach can silently auto-load at most once per browser session, never on a fresh launch. Instead, `serve.py` (the app's local server — see "Running the app") reads `InquisitorSetup.txt` directly from the operator's OS Documents folder and hands it back over plain HTTP, which needs no browser permission at all. A 404 (no setup file saved yet, or served some other way that lacks this endpoint) is a silent no-op. This means auto-load only works when the app is launched via `serve.py`/`Run-Inquisitor.bat` — not under `python -m http.server` or a different static host.
+  - **`serve.py`'s `documents_folder()` must not hardcode `home() / 'Documents'`** — OneDrive's "Known Folder Move" (common on managed/school machines) redirects the real Documents folder to somewhere like `...\OneDrive\Documents` by changing the registry, not by moving/symlinking the default path, so that guess silently points at the wrong (often nonexistent-content) folder. It calls `SHGetFolderPathW` (CSIDL_PERSONAL) via `ctypes` instead, which returns the actual redirected path Windows and the browser's own file pickers agree on. If auto-load ever "just doesn't work" again, check this first — compare `serve.py`'s resolved path (printed in the console it runs in) against `[Environment]::GetFolderPath('MyDocuments')` in PowerShell.
+
 ## Known limitations / pending work
 
-- Tab bar dropdowns' Display Settings / Sound Settings items are placeholders — content TBD after testing.
+- Tab bar dropdown's Display Settings item is a placeholder — content TBD after testing.
+- Auto-loading `InquisitorSetup.txt` depends on `serve.py`; hosting `index.html` some other way (e.g. a plain static file server) loses that feature, though Save/Open Setup File still work everywhere.

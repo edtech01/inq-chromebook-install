@@ -1,5 +1,10 @@
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // registration.update() explicitly bypasses Chrome's "at most once per 24h" throttle on
+  // checking sw.js for changes -- without it, a bumped CACHE version can silently sit unnoticed
+  // for up to a day even though the file on disk (and the server) already have it.
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => reg.update().catch(() => {}))
+    .catch(() => {});
 }
 
 // Hardcoded factory defaults — used by Restore Default Setup. Kept separate from
@@ -360,6 +365,37 @@ async function saveSetupFile() {
   }
 }
 
+// Parses the key=value setup text (shared by manual Open Setup File and silent auto-load)
+// and applies it to state. Does not touch populateMenu() — callers refresh the UI themselves.
+function applySetupText(text) {
+  const values = {};
+  text.split('\n').forEach(line => {
+    const idx = line.indexOf('=');
+    if (idx === -1) return;
+    values[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+  });
+
+  const count = playersPerTeam();
+  if (values.teamOneName !== undefined) state.teams[0].name = values.teamOneName;
+  for (let i = 0; i < count; i++) {
+    const v = values[`teamOnePlayer${i + 1}`];
+    if (v !== undefined) state.teams[0].players[i] = v;
+  }
+  if (values.teamTwoName !== undefined) state.teams[1].name = values.teamTwoName;
+  for (let i = 0; i < count; i++) {
+    const v = values[`teamTwoPlayer${i + 1}`];
+    if (v !== undefined) state.teams[1].players[i] = v;
+  }
+
+  if (values.matchTimer !== undefined) state.config.matchTimer = values.matchTimer;
+  if (values.tossupTimer !== undefined) state.config.tossupTimer = parseInt(values.tossupTimer) || state.config.tossupTimer;
+  if (values.bonusTimer !== undefined) state.config.bonusTimer = parseInt(values.bonusTimer) || state.config.bonusTimer;
+  if (values.scoreIncrement !== undefined) state.config.scoreIncrement = parseInt(values.scoreIncrement) || state.config.scoreIncrement;
+  if (values.keepStats !== undefined) state.keepStats = values.keepStats === 'true';
+  if (values.voiceSpotter !== undefined) state.voiceSpotter = values.voiceSpotter === 'true';
+  if (values.scoreboardMode !== undefined) state.scoreboardMode = values.scoreboardMode === 'cutthroat' ? 'cutthroat' : 'classic';
+}
+
 async function openSetupFile() {
   try {
     const [handle] = await window.showOpenFilePicker({
@@ -368,37 +404,27 @@ async function openSetupFile() {
     });
     const file = await handle.getFile();
     const text = await file.text();
-
-    const values = {};
-    text.split('\n').forEach(line => {
-      const idx = line.indexOf('=');
-      if (idx === -1) return;
-      values[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-    });
-
-    const count = playersPerTeam();
-    if (values.teamOneName !== undefined) state.teams[0].name = values.teamOneName;
-    for (let i = 0; i < count; i++) {
-      const v = values[`teamOnePlayer${i + 1}`];
-      if (v !== undefined) state.teams[0].players[i] = v;
-    }
-    if (values.teamTwoName !== undefined) state.teams[1].name = values.teamTwoName;
-    for (let i = 0; i < count; i++) {
-      const v = values[`teamTwoPlayer${i + 1}`];
-      if (v !== undefined) state.teams[1].players[i] = v;
-    }
-
-    if (values.matchTimer !== undefined) state.config.matchTimer = values.matchTimer;
-    if (values.tossupTimer !== undefined) state.config.tossupTimer = parseInt(values.tossupTimer) || state.config.tossupTimer;
-    if (values.bonusTimer !== undefined) state.config.bonusTimer = parseInt(values.bonusTimer) || state.config.bonusTimer;
-    if (values.scoreIncrement !== undefined) state.config.scoreIncrement = parseInt(values.scoreIncrement) || state.config.scoreIncrement;
-    if (values.keepStats !== undefined) state.keepStats = values.keepStats === 'true';
-    if (values.voiceSpotter !== undefined) state.voiceSpotter = values.voiceSpotter === 'true';
-    if (values.scoreboardMode !== undefined) state.scoreboardMode = values.scoreboardMode === 'cutthroat' ? 'cutthroat' : 'classic';
-
+    applySetupText(text);
     populateMenu();
   } catch (err) {
     if (err.name !== 'AbortError') console.warn('Open Setup File failed:', err);
+  }
+}
+
+// ── SETUP FILE AUTO-LOAD ─────────────────────────────────────────────────────
+// A browser tab can't silently read an arbitrary local file — the File System Access API
+// (used by Save/Open Setup File above) only works from a real user gesture, and even a
+// previously-granted handle loses its permission once the browser restarts. So auto-load
+// instead asks the local server (serve.py) for the file: it reads InquisitorSetup.txt
+// straight from the operator's Documents folder and hands it back over plain HTTP, which
+// needs no browser permission at all. A 404 (no setup file saved yet) is a silent no-op.
+async function tryAutoLoadSetupFile() {
+  try {
+    const res = await fetch('/api/setup-file', { cache: 'no-store' });
+    if (!res.ok) return;
+    applySetupText(await res.text());
+  } catch (err) {
+    console.warn('Auto-load InquisitorSetup.txt skipped:', err);
   }
 }
 
@@ -446,6 +472,23 @@ function initMenu() {
   $('menu-file-restore-setup').addEventListener('click', (e) => {
     e.preventDefault();
     restoreDefaultSetup();
+  });
+
+  $('menu-info-about').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('menu-msgbox-text').textContent = 'InqChrome V1.1';
+    $('menu-msgbox').style.display = 'flex';
+  });
+
+  $('menu-info-help').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('menu-msgbox-text').innerHTML =
+      '<a href="https://inquisitor.us" target="_blank" rel="noopener noreferrer">https://inquisitor.us</a>';
+    $('menu-msgbox').style.display = 'flex';
+  });
+
+  $('btn-menu-msgbox-dismiss').addEventListener('click', () => {
+    $('menu-msgbox').style.display = 'none';
   });
 
   document.querySelectorAll('#menu-body input[type="text"]').forEach(input => {
@@ -1183,4 +1226,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initSplash();
   initMenu();
   showScreen('splash');
+  tryAutoLoadSetupFile(); // silently reload InquisitorSetup.txt if it was granted in a prior session
 });

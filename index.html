@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inquisitor — Academic Quick Recall</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -49,7 +49,6 @@
     <div class="tab">Options
       <div class="tab-dropdown">
         <a href="#">Display Settings</a>
-        <a href="#">Sound Settings</a>
         <label class="tab-dropdown-check"><input type="checkbox" id="opt-keep-stats"> Keep Match Stats</label>
         <label class="tab-dropdown-check"><input type="checkbox" id="opt-voice-spotter"> Voice Spotter</label>
         <div class="tab-dropdown-label">Scoreboard Type</div>
@@ -59,8 +58,8 @@
     </div>
     <div class="tab">Info
       <div class="tab-dropdown">
-        <a href="#">About Inquisitor</a>
-        <a href="#">Help</a>
+        <a href="#" id="menu-info-about">About Inquisitor Chrome</a>
+        <a href="#" id="menu-info-help">Help</a>
       </div>
     </div>
   </div>
@@ -126,6 +125,14 @@
   <div id="menu-footer">
     <button id="btn-stats" class="btn btn-secondary" disabled>STATS</button>
     <button id="btn-continue" class="btn btn-success">CONTINUE</button>
+  </div>
+
+  <!-- Info message box overlay (About / Help) -->
+  <div id="menu-msgbox" style="display:none;">
+    <div id="menu-msgbox-content">
+      <div id="menu-msgbox-text"></div>
+      <button id="btn-menu-msgbox-dismiss" class="btn btn-primary">Dismiss</button>
+    </div>
   </div>
 </div>
 
@@ -267,6 +274,6 @@
 </div>
 
 </div><!-- #app-container -->
-<script src="app.js?v=39"></script>
+<script src="app.js?v=42"></script>
 </body>
 </html>
