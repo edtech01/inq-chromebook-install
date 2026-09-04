@@ -331,12 +331,13 @@ function saveMenuValues() {
   state.config.tossupTimer    = parseInt($('cfg-tossup').value) || 5;
   state.config.bonusTimer     = parseInt($('cfg-bonus').value)  || 10;
   state.config.scoreIncrement = parseInt($('cfg-score').value)  || 1;
+
+  saveSetupToLocalStorage();
 }
 
-// File menu: Save/Open/Restore Setup — persists everything on the menu page
-// (team/player names, match config, and the current options) as key=value lines.
-async function saveSetupFile() {
-  saveMenuValues(); // make sure state reflects whatever is currently typed in the fields
+// Serializes everything on the menu page (team/player names, match config, and the
+// current options) as key=value lines. Shared by Save Setup File and local-storage autosave.
+function buildSetupText() {
   const count = playersPerTeam();
   const lines = [];
   lines.push(`teamOneName=${state.teams[0].name}`);
@@ -350,6 +351,25 @@ async function saveSetupFile() {
   lines.push(`keepStats=${state.keepStats}`);
   lines.push(`voiceSpotter=${state.voiceSpotter}`);
   lines.push(`scoreboardMode=${state.scoreboardMode}`);
+  return lines.join('\n');
+}
+
+const LOCAL_SETUP_KEY = 'inquisitorSetup';
+
+// Mirrors the current setup into localStorage so this browser/device remembers its own
+// settings across restarts even with no server behind it (e.g. installed from GitHub Pages
+// on a Chromebook, where there's no serve.py to read a Documents-folder file from).
+function saveSetupToLocalStorage() {
+  try {
+    localStorage.setItem(LOCAL_SETUP_KEY, buildSetupText());
+  } catch (err) {
+    console.warn('Could not save setup to local storage:', err);
+  }
+}
+
+// File menu: Save/Open/Restore Setup.
+async function saveSetupFile() {
+  saveMenuValues(); // make sure state reflects whatever is currently typed in the fields
 
   try {
     const handle = await window.showSaveFilePicker({
@@ -358,7 +378,7 @@ async function saveSetupFile() {
       types: [{ description: 'Text File', accept: { 'text/plain': ['.txt'] } }]
     });
     const writable = await handle.createWritable();
-    await writable.write(lines.join('\n'));
+    await writable.write(buildSetupText());
     await writable.close();
   } catch (err) {
     if (err.name !== 'AbortError') console.warn('Save Setup File failed:', err);
@@ -406,6 +426,7 @@ async function openSetupFile() {
     const text = await file.text();
     applySetupText(text);
     populateMenu();
+    saveSetupToLocalStorage();
   } catch (err) {
     if (err.name !== 'AbortError') console.warn('Open Setup File failed:', err);
   }
@@ -414,17 +435,29 @@ async function openSetupFile() {
 // ── SETUP FILE AUTO-LOAD ─────────────────────────────────────────────────────
 // A browser tab can't silently read an arbitrary local file — the File System Access API
 // (used by Save/Open Setup File above) only works from a real user gesture, and even a
-// previously-granted handle loses its permission once the browser restarts. So auto-load
-// instead asks the local server (serve.py) for the file: it reads InquisitorSetup.txt
-// straight from the operator's Documents folder and hands it back over plain HTTP, which
-// needs no browser permission at all. A 404 (no setup file saved yet) is a silent no-op.
+// previously-granted handle loses its permission once the browser restarts. Two auto-load
+// sources are tried instead, cheapest/most-universal first:
+//   1. localStorage — instant, always available, and what makes a Chromebook installed
+//      straight from GitHub Pages (no server at all behind it) remember its own settings.
+//   2. GET /api/setup-file — only present when the app is served by serve.py (the local
+//      Windows dev/testing flow), which reads InquisitorSetup.txt from the operator's
+//      Documents folder. Applied after local storage so it wins when both exist. A 404 or
+//      network failure (e.g. static hosting with no such route) is a silent no-op.
 async function tryAutoLoadSetupFile() {
+  try {
+    const text = localStorage.getItem(LOCAL_SETUP_KEY);
+    if (text) applySetupText(text);
+  } catch (err) {
+    console.warn('Auto-load from local storage skipped:', err);
+  }
+
   try {
     const res = await fetch('/api/setup-file', { cache: 'no-store' });
     if (!res.ok) return;
     applySetupText(await res.text());
   } catch (err) {
-    console.warn('Auto-load InquisitorSetup.txt skipped:', err);
+    // No server-backed setup file available (e.g. static hosting) — local storage above
+    // already applied whatever was saved on this device.
   }
 }
 
@@ -438,6 +471,7 @@ function restoreDefaultSetup() {
   state.voiceSpotter = false;
   state.scoreboardMode = 'classic';
   populateMenu();
+  saveSetupToLocalStorage();
 }
 
 function initMenu() {
@@ -1226,5 +1260,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initSplash();
   initMenu();
   showScreen('splash');
-  tryAutoLoadSetupFile(); // silently reload InquisitorSetup.txt if it was granted in a prior session
+  tryAutoLoadSetupFile(); // silently restore this device's last-saved setup (local storage, then serve.py if present)
 });
