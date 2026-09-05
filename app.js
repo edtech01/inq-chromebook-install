@@ -519,6 +519,15 @@ function initMenu() {
     showMsgBox('InqChrome V1.1');
   });
 
+  $('menu-info-cast-help').addEventListener('click', (e) => {
+    e.preventDefault();
+    showMsgBox(
+      '1. Click the status area in the bottom-right corner of the screen (the clock/battery/Wi-Fi icons) to open Quick Settings.<br><br>' +
+      '2. Look for a Cast tile (an icon that looks like a screen with signal waves in the corner).<br><br>' +
+      '3. Click it — it lists nearby Cast devices and lets you cast your whole screen, which will include whatever the Inquisitor app window is showing.'
+    );
+  });
+
   $('menu-info-help').addEventListener('click', (e) => {
     e.preventDefault();
     showMsgBox('<a href="https://inquisitor.us" target="_blank" rel="noopener noreferrer">https://inquisitor.us</a>');

@@ -1,4 +1,5 @@
 {
+  "id": "./index.html",
   "name": "Inquisitor — Academic Quick Recall",
   "short_name": "Inquisitor",
   "description": "Academic quick-recall buzzer system for Chromebook",
