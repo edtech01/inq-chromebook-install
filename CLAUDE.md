@@ -93,14 +93,11 @@ Message text is chosen by *why* the connection didn't happen:
 
 Menu → Options → "Voice Spotter" checkbox (`opt-voice-spotter`) sets `state.voiceSpotter`. On a decoded buzz, `handleScoreboardBuzz` passes `announceBuzz(teamName, playerName)` as the `onEnded` callback to `playSound`, so the speech (`SpeechSynthesisUtterance` reading "`<team>, <player>`") happens right after the buzz-in sound finishes, not before. No-ops if the checkbox is off or `speechSynthesis` isn't available.
 
-### Cast to TV
+### Casting the display to a TV
 
-Menu → Options → "Cast to TV" (`menu-options-cast`) toggles `toggleCastToTV()`, which uses the standards-based W3C Presentation API (`PresentationRequest`/`navigator.presentation`) — not the Google Cast Sender SDK, which needs a registered Cast Application ID and a custom receiver and would be overkill here. `new PresentationRequest([location.href]).start()` opens Chrome's native Cast device picker; picking a device for a plain page URL like this falls back to full tab-mirroring of whatever screen is currently showing (menu, scoreboard, cutthroat, or stats), which is exactly what's wanted for a live-updating scoreboard. Needs a secure context (https/localhost) — already guaranteed by the existing WebHID requirement.
+**There is no in-app "Cast" button — use Chrome/ChromeOS's own native casting instead**, e.g. right-clicking the installed app's icon on the shelf, or ChromeOS Quick Settings → Cast. That does real screen mirroring (live pixels, whatever is currently on screen) with zero app code.
 
-- `castConnection` is a **module-level variable, not part of `state`** — deliberately not persisted anywhere (`buildSetupText()`/`applySetupText()`/localStorage). A `PresentationConnection` can't survive a page reload without real reconnect logic, so there's nothing meaningful to restore.
-- The button label toggles between "Cast to TV" and "Stop Casting" (`updateCastMenuLabel()`); the connection's own `close`/`terminate` events also trigger the reset, so the label self-corrects if the TV/receiver ends the session from its side (e.g. powered off).
-- `AbortError` (user closed the device picker) is silently ignored, matching the Save/Open Setup File convention; `NotFoundError` (no Cast devices on the network) and any other failure show a friendly message via the shared `showMsgBox()` helper (also used by the Info tab's About/Help items).
-- **Real device discovery cannot be tested in a sandboxed/automated browser** (no LAN multicast access) — verify on the actual Chromebook with a real Chromecast/Cast-enabled TV on the same Wi-Fi network.
+A web page **cannot** trigger that same native tab-mirroring UI itself — it's deliberately locked out for privacy reasons (otherwise any site could silently screen-share a visitor). An in-app "Cast to TV" button was tried using the W3C Presentation API (`PresentationRequest`), but that API does something different: it opens a **second, independent instance of the app's URL** on the receiver device rather than mirroring the live tab — so the TV just showed a fresh copy of the app stuck on the splash screen, never reflecting the operator's actual live state. That approach was reverted. Building genuine live mirroring via Presentation API would require app.js to push state updates (screen transitions, scores, buzzes, timers) over the API's message channel to a receiver-side copy of the app — a real second implementation of "what renders," not a small tweak — and hasn't been built.
 
 ### Score boxes
 

@@ -356,63 +356,10 @@ function buildSetupText() {
 
 const LOCAL_SETUP_KEY = 'inquisitorSetup';
 
-// ── CAST TO TV (Presentation API) ────────────────────────────────────────────
-// Ephemeral only — deliberately NOT part of `state`/buildSetupText()/localStorage.
-// A PresentationConnection can't survive a page reload without much more complex
-// reconnection logic, so there is nothing meaningful to persist or restore.
-let castConnection = null;
-
-// Shows a message in the shared menu overlay (About/Help/Cast all use this).
+// Shows a message in the shared menu overlay (About/Help use this).
 function showMsgBox(html) {
   $('menu-msgbox-text').innerHTML = html;
   $('menu-msgbox').style.display = 'flex';
-}
-
-// Options tab: "Cast to TV" / "Stop Casting" toggle. Uses the standards-based W3C
-// Presentation API (not the Google Cast Sender SDK — that requires a registered Cast
-// Application ID and a custom receiver, which is overkill for "mirror this tab").
-// Calling PresentationRequest.start() from this click handler opens Chrome's native
-// Cast device picker; picking a plain https receiver (this page's own URL) falls back
-// to full tab-mirroring of whatever screen is currently showing.
-async function toggleCastToTV() {
-  if (castConnection) {
-    castConnection.terminate();
-    return; // 'terminate'/'close' handlers below reset state and the label
-  }
-
-  if (!('presentation' in navigator) || typeof PresentationRequest !== 'function') {
-    showMsgBox('Casting is not supported in this browser.');
-    return;
-  }
-
-  try {
-    const request = new PresentationRequest([location.href]);
-    const connection = await request.start();
-    castConnection = connection;
-    updateCastMenuLabel();
-
-    connection.addEventListener('close', onCastConnectionEnded);
-    connection.addEventListener('terminate', onCastConnectionEnded);
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      // User closed the device picker without choosing anything — silent, matching
-      // the Save/Open Setup File convention.
-    } else if (err.name === 'NotFoundError') {
-      showMsgBox('No Chromecast or Cast-enabled TV was found on this network.');
-    } else {
-      console.warn('Cast to TV failed:', err);
-      showMsgBox('Casting is not supported in this browser.');
-    }
-  }
-}
-
-function onCastConnectionEnded() {
-  castConnection = null;
-  updateCastMenuLabel();
-}
-
-function updateCastMenuLabel() {
-  $('menu-options-cast').textContent = castConnection ? 'Stop Casting' : 'Cast to TV';
 }
 
 // Mirrors the current setup into localStorage so this browser/device remembers its own
@@ -607,11 +554,6 @@ function initMenu() {
   $('opt-voice-spotter').addEventListener('change', (e) => {
     state.voiceSpotter = e.target.checked;
     updateOptionsSummary();
-  });
-
-  $('menu-options-cast').addEventListener('click', (e) => {
-    e.preventDefault();
-    toggleCastToTV();
   });
 
   $('opt-mode-classic').addEventListener('change', (e) => {
