@@ -1,4 +1,4 @@
-const CACHE = 'inquisitor-v17';
+const CACHE = 'inquisitor-v18';
 const ASSETS = [
   './',
   './index.html',

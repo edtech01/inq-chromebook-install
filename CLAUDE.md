@@ -93,6 +93,15 @@ Message text is chosen by *why* the connection didn't happen:
 
 Menu → Options → "Voice Spotter" checkbox (`opt-voice-spotter`) sets `state.voiceSpotter`. On a decoded buzz, `handleScoreboardBuzz` passes `announceBuzz(teamName, playerName)` as the `onEnded` callback to `playSound`, so the speech (`SpeechSynthesisUtterance` reading "`<team>, <player>`") happens right after the buzz-in sound finishes, not before. No-ops if the checkbox is off or `speechSynthesis` isn't available.
 
+### Cast to TV
+
+Menu → Options → "Cast to TV" (`menu-options-cast`) toggles `toggleCastToTV()`, which uses the standards-based W3C Presentation API (`PresentationRequest`/`navigator.presentation`) — not the Google Cast Sender SDK, which needs a registered Cast Application ID and a custom receiver and would be overkill here. `new PresentationRequest([location.href]).start()` opens Chrome's native Cast device picker; picking a device for a plain page URL like this falls back to full tab-mirroring of whatever screen is currently showing (menu, scoreboard, cutthroat, or stats), which is exactly what's wanted for a live-updating scoreboard. Needs a secure context (https/localhost) — already guaranteed by the existing WebHID requirement.
+
+- `castConnection` is a **module-level variable, not part of `state`** — deliberately not persisted anywhere (`buildSetupText()`/`applySetupText()`/localStorage). A `PresentationConnection` can't survive a page reload without real reconnect logic, so there's nothing meaningful to restore.
+- The button label toggles between "Cast to TV" and "Stop Casting" (`updateCastMenuLabel()`); the connection's own `close`/`terminate` events also trigger the reset, so the label self-corrects if the TV/receiver ends the session from its side (e.g. powered off).
+- `AbortError` (user closed the device picker) is silently ignored, matching the Save/Open Setup File convention; `NotFoundError` (no Cast devices on the network) and any other failure show a friendly message via the shared `showMsgBox()` helper (also used by the Info tab's About/Help items).
+- **Real device discovery cannot be tested in a sandboxed/automated browser** (no LAN multicast access) — verify on the actual Chromebook with a real Chromecast/Cast-enabled TV on the same Wi-Fi network.
+
 ### Score boxes
 
 Left-click increments, right-click decrements by `state.config.scoreIncrement`. Score cannot go below 0. Scores are **preserved** across menu visits — `initScoreboard()` does not reset them. `adjustScore()` also attributes tossup/bonus points to `state.stats` via `state.currentBuzz` / `state.bonusActiveTeam`.
