@@ -35,6 +35,7 @@ const state = {
   ctScores: [],              // Cut Throat per-player scores; index 0..count-1 = Team One, count..2count-1 = Team Two
   ctBuzzedPlayerIdx: null,    // ctScores index of the player currently shown in the Cut Throat buzz box
   matchSeconds: 0,
+  menuMatchShown: '',     // remaining time shown in the menu's MATCH TIMER field mid-match
   matchInterval: null,
   matchRunning: false,
   responseInterval: null,
@@ -275,6 +276,13 @@ function playersPerTeam() {
   return 5; // model 712 and default
 }
 
+// The MATCH TIMER label is found relative to its input (no id of its own) so a stale cached
+// index.html paired with a newer app.js can't throw here and strand the operator on a screen.
+function setMatchFieldLabel(text) {
+  const label = $('cfg-match').previousElementSibling;
+  if (label && label.tagName === 'LABEL') label.textContent = text;
+}
+
 function populateMenu() {
   const count = playersPerTeam();
   const show5 = count === 5;
@@ -292,7 +300,16 @@ function populateMenu() {
     $(`t2-p${i+1}`).value = /^Player \d+$/.test(stored) ? `Player ${i + count + 1}` : stored;
   }
 
-  $('cfg-match').value  = state.config.matchTimer;
+  // Once a match is under way the MATCH TIMER field edits the remaining clock, not the
+  // starting time — remember what was shown so an untouched field leaves the clock alone.
+  if (state.matchInitialized) {
+    state.menuMatchShown = formatMMSS(Math.max(0, state.matchSeconds));
+    $('cfg-match').value = state.menuMatchShown;
+    setMatchFieldLabel('MATCH TIME LEFT');
+  } else {
+    $('cfg-match').value = state.config.matchTimer;
+    setMatchFieldLabel('MATCH TIMER');
+  }
   $('cfg-tossup').value = state.config.tossupTimer;
   $('cfg-bonus').value  = state.config.bonusTimer;
   $('cfg-score').value  = state.config.scoreIncrement;
@@ -327,7 +344,14 @@ function saveMenuValues() {
     state.teams[1].players[i] = $(`t2-p${i+1}`).value || `Player ${i+count+1}`;
   state.teams[1].players.length = count;
 
-  state.config.matchTimer     = $('cfg-match').value  || '15:00';
+  if (state.matchInitialized) {
+    // Mid-match: an edited value replaces the remaining clock; the configured starting
+    // time stays as-is. Blank (focus clears the field), unchanged or invalid = no change.
+    const v = $('cfg-match').value.trim();
+    if (/^\d+(:[0-5]?\d)?$/.test(v) && v !== state.menuMatchShown) state.matchSeconds = parseMMSS(v);
+  } else {
+    state.config.matchTimer   = $('cfg-match').value  || '15:00';
+  }
   state.config.tossupTimer    = parseInt($('cfg-tossup').value) || 5;
   state.config.bonusTimer     = parseInt($('cfg-bonus').value)  || 10;
   state.config.scoreIncrement = parseInt($('cfg-score').value)  || 1;
